@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 
 #############
 # Note: 
-# orange is where Cozmo belives it is after localization
-# blue is where Cozmo initially belives it is (before localization)
+# orange is where Cozmo belives it is after localization 
+# blue is where Cozmo initially belives it is prior to localization
 #############
 
 # Used for making a histogram to display where cozmo thinks he is
