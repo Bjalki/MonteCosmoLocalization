@@ -1,5 +1,4 @@
 import img_processing as imgPr
-import MCL_old
 import pic_collection as picColl
 import random
 import cozmo
@@ -9,12 +8,12 @@ import numpy as np
 from PIL import Image, ImageOps
 import cv2
 import Histogram
-import cozmo_MCL
+import MCL
 
 
 def kidnap_problem_solver(robot: cozmo.robot.Robot):
     # Spins the cozmo 360 degrees to get a panorama image of its current environment
-    picColl.take_imgs(robot, num_pic=20, img_dir='cozmo-images-kidnap')
+    picColl.take_imgs(robot, num_pic=40, img_dir='cozmo-images-kidnap')
     # print('imgs collected')
     
     # Turn robot a random amount to simulate a kidnapping & snap picture at new location
@@ -25,7 +24,7 @@ def kidnap_problem_solver(robot: cozmo.robot.Robot):
     # print('take 1 img')
     
     #Use MCL to find original position, takes images an tries to relocate
-    cozmo_MCL.MCL(robot)
+    MCL.MCL(robot)
     
     # Generate histogram to display cozmo's beliefs on location
    # Histogram.makeHistogram()
@@ -33,8 +32,14 @@ def kidnap_problem_solver(robot: cozmo.robot.Robot):
 
 #"Kidnap" robot by rotating a random amount
 def kidnap(robot: cozmo.robot.Robot):
-    randomAngle = random.randint(30, 360)
-    robot.turn_in_place(degrees(randomAngle), speed=degrees(45)).wait_for_completed()
+     #because we don't have a super acurate motion model it'll be easier to move based on steps
+    randomAngle = random.randint(1, 40)
+    temp_i =0
+    while temp_i < randomAngle:
+        robot.turn_in_place(degrees(9), speed=degrees(45)).wait_for_completed()
+        temp_i+=1 
+
+    
 
 def rotate_robot(robot: cozmo.robot.Robot, angle):
     robot.turn_in_place(degrees(angle), speed=degrees(20)).wait_for_completed()
