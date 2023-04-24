@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 
 #############
 # Note: 
-# orange is where Cozmo belives it is after localization 
-# blue is where Cozmo initially belives it is prior to localization
+# orange is where Cozmo belives it is after localization
+# blue is where Cozmo initially belives it is (before localization)
 #############
 
 # Used for making a histogram to display where cozmo thinks he is
@@ -33,8 +33,8 @@ def makeHistogram():
   # the csv file when you run the code will be included in the final histogram with the new
   # data unless you clear it first. 
   plt.clf()
-  plt.hist(originalPredictions,range = [0,width], bins = width)
-  plt.hist(newestPredictions,range = [0,width], bins = width)
+  plt.hist(originalPredictions,range = [0,40], bins = 40)
+  plt.hist(newestPredictions,range = [0,40], bins = 40)
   plt.title('Robot')
   plt.xlabel('Width of Panorama')
   plt.ylabel('Frequency of Predicitons')
