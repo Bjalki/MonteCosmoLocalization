@@ -22,9 +22,9 @@ def makeHistogram():
   # Gets values from the csv file
   df = pd.read_csv("data/data.csv")
   # Gets width of graph from panorama
-  pano = cv2.imread("cozmo-images-kidnap\c-Panorama.jpg") # our cropped panorama
-  dimensions = pano.shape
-  width = dimensions[1]
+  #pano = cv2.imread("cozmo-images-kidnap\c-Panorama.jpg") # our cropped panorama
+  #dimensions = pano.shape
+  #width = dimensions[1]
 
   originalPredictions = df['particles']
   newestPredictions = df['newParticles']
