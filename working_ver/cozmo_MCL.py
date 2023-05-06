@@ -1,28 +1,30 @@
 '''
 Based on work of http://cs.gettysburg.edu/~tneller/archive/cs371/cozmo/22sp/fuller/#code
 '''
-import os
+
+#!/usr/bin/python
+from string import hexdigits
+from turtle import width
 import cv2
-import math 
-import random
 import pandas as pd     
+import random
+import cozmo
+from cozmo.util import degrees, distance_mm, speed_mmps
 import numpy as np
 from PIL import Image
-
-import cozmo
-from cozmo.util import degrees
-
-import util
-import util_robot as util_r
+import math 
+import statistics as stat
+import kidnap
+import img_processing as imgPr
+import Histogram
 
 # Arbitrary values, to model gaussian noise.
 sensorVariance = 0.01
 proportionalMotionVariance = 0.01
-KIDNAP_DIR = './cozmo-images-kidnap'
-KIDNAP_IMG_PATH = 'cozmo-images-kidnap/kidnapPhoto.jpg'
 
 def MCL(robot: cozmo.robot.Robot):
-  panoPixelArray = cv2.imread("cozmo-images-kidnap/cropped-pano.jpg") #image to read in, should read in our pano (the cropped one)
+  panoPixelArray = cv2.imread("cozmo-images-kidnap/c-Panorama.jpg") #image to read in, should read in our pano (the cropped one)
+  panoPixelArray.astype("float")                                    #make sure to change other references to desired image as needed in this file
   width = panoPixelArray.shape[1]
   # Initialize cozmo camera
   robot.camera.image_stream_enabled = True
@@ -35,8 +37,9 @@ def MCL(robot: cozmo.robot.Robot):
   # starts as randomized particles, aka guesses for where the robot is facing
   particles = [random.randint(0, width) for _ in range(M)]
   '''
-  Try this instead: particles = np.random.randint(0, width, (M, 1))
+  Try this instead
   '''
+  # particles = np.random.randint(0, width, (M, 1))
 
   # Saves preliminary predictions to a dataframe
   pointFrame = pd.DataFrame(particles, columns=['particles'])
@@ -47,11 +50,8 @@ def MCL(robot: cozmo.robot.Robot):
     robot.turn_in_place(degrees(12.0)).wait_for_completed() #collect 30 images for pano, so 18 degrees per turn
     cv_cozmo_image2 = None
 
-    util_r.take_single_img(robot, KIDNAP_IMG_PATH)
-    img = util.get_img_gray(KIDNAP_IMG_PATH)
-    h, w = img.shape[:2]
-    cropped_img = util.crop_img(img, 40, h-40, 0, w)
-    cv_cozmo_image2 = cropped_img
+    kidnap.takeSingleImage(robot) 
+    cv_cozmo_image2 = imgPr.get_img_gray("cozmo-images-kidnap/c-kidnapPhoto.jpg") #get cropped kidnapPhoto from prev method
     
     # empty arrays that hold population number, and weight
     pixelPopulationNumber = []
@@ -109,13 +109,13 @@ def MCL(robot: cozmo.robot.Robot):
   
   #important: bin portions of data to find were most predictions are 'clumped,' then can take 
   #this bin and set as most believed location
-  mostBelievedLoc = util.makeHistogram()   # get max bin for 'newParticles' histogram, this is most frequent belief predication after MCL of a pixel range 10
+  mostBelievedLoc = Histogram.makeHistogram()   # get max bin for 'newParticles' histogram, this is most frequent belief predication after MCL of a pixel range 10
                                                 # (where Cozmo thinks it is after MCL)
   #get width of panorama, our 'map' of the environment
   '''
   I believe this part of reading image and get width is redundant since you did it on line 26
   '''
-  pano = cv2.imread("cozmo-images-kidnap/cropped-pano.jpg") # our cropped panorama
+  pano = cv2.imread("cozmo-images-kidnap/c-Panorama.jpg") # our cropped panorama
   dimensions = pano.shape
   width = dimensions[1]
   
@@ -146,7 +146,7 @@ def sample_motion_model(xPixel, width):
 def measurement_model(latestImage, particlePose):
   # Gaussian (i.e. normal) error, see https://en.wikipedia.org/wiki/Normal_distribution
   # same as p_hit in Figure 6.2(a), but without bounds. Table 5.2
-  img = Image.open("cozmo-images-kidnap/cropped-pano.jpg")
+  img = Image.open("cozmo-images-kidnap/c-Panorama.jpg")
   width, height = img.size
   #get the slice of the panorama that corresponds to the pixel
   particle = slice(img, particlePose, 320, 320, height)
@@ -173,7 +173,14 @@ def sample_normal_distribution(variance):
 # Compares images by pixels using Mean Squared Error formula
 def compare_images(imageA, imageB):
   # See https://en.wikipedia.org/wiki/Mean_squared_error 
-  height, width = imageA.shape[:2]
+  dimensions = imageA.astype("float").shape
+  width = dimensions[1]
+  height = dimensions[0]
+  '''
+  Try this instead (lines 179-181)
+
+  height, width = imageA.shape
+  '''
   err = np.sum((imageA.astype("float") - imageB.astype("float")) ** 2)
   # Dividing the values so they fit 
   err /= (width * height * width * height)
@@ -183,12 +190,25 @@ def compare_images(imageA, imageB):
 def slice(img, center, pixelLeft, pixelRight, slice_size):
   # slice an image into parts slice_size wide
   # initialize boundaries
-  img = img
+  img = img #Image.open("cozmo-images-kidnap\c-Panorama.jpg")
+  # img = Image.open("cozmo-images-kidnap/c-Panorama.jpg")
   width, height = img.size
+  ''' Line 197
+  img.size returns width, height instead of height, width ???
+  '''
+  left = center - pixelLeft
+  right = center + pixelRight
+
+  # if we go out of bounds set the limit to be the bounds of the image
+  if center < pixelLeft:
+      left = 0
+  if center > (width - pixelRight):
+      right = width
+  ''' Try this instead (line 193-200)
   
   left = max(center - pixelLeft, 0)
   right = min(center + pixelRight, width)
-
+  '''
   # newImgSize = dim(center - 20, center + 20)
   upper = 0
   slices = int(math.ceil(width / slice_size))
@@ -201,15 +221,35 @@ def slice(img, center, pixelLeft, pixelRight, slice_size):
     else:
       lower = int(count * slice_size)
 
-    # box with boundaries
+      # box with boundaries
     bbox = (left, upper, right, lower)
     sliced_image = img.crop(bbox)
     cv_sliced = np.array(sliced_image)
     upper += slice_size
     # save the slice
+
     count += 1
     cv2.imwrite("cozmo-images-kidnap/sliced.jpg", cv_sliced)
     return sliced_image
+
+# TO-DO
+
+  #locate in panorama if it has gone a full 360
+  #if pixels then knowing what is the point where things cycle around is important
+  #subtract that number of pixels to wrap it around
+
+  #slice
+  #needs to wrap around if at one end or the other
+
+  #figure out units for panorama so that motion model
+  #(which should be wrapping around)
+  #turning in degrees but units should be pixels
+  #can't wrap around until we know...
+  #what we are calling pixel 0
+
+  #something that would print out where it thinks it is at 
+  #and where it is facing as a demonstration of localization
+
 
 
 if __name__ == '__main__':
